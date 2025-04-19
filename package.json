@@ -1,5 +1,5 @@
 {
-  "name": "proxy-api-crypto",
+  "name": "proxi-api-crypto",
   "version": "1.0.0",
   "description": "Serveur proxy pour mes appels API",
   "main": "index.js",
