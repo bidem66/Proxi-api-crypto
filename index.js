@@ -3,24 +3,25 @@ const fetch = require('node-fetch');
 const cors = require('cors');
 
 const app = express();
+const PORT = process.env.PORT || 3000;
+
 app.use(cors());
 
 app.get('/proxy', async (req, res) => {
-  const { url } = req.query;
-  if (!url) return res.status(400).send("Missing URL");
+  const targetUrl = req.query.url;
+  if (!targetUrl) {
+    return res.status(400).json({ error: 'URL manquante dans le paramètre ?url=' });
+  }
 
   try {
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0'
-      }
-    });
-    const data = await response.text();
-    res.send(data);
-  } catch (error) {
-    res.status(500).send("Erreur serveur proxy");
+    const response = await fetch(targetUrl);
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: 'Erreur de récupération depuis le proxy', details: err.toString() });
   }
 });
 
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`Proxy démarré sur port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Proxy démarré sur le port ${PORT}`);
+});
