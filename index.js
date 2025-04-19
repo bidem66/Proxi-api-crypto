@@ -1,83 +1,79 @@
 // index.js
-const express = require('express');
-const fetch = require('node-fetch');
-const cors = require('cors');
-require('dotenv').config();
-
+const express = require("express");
+const fetch = require("node-fetch");
+require("dotenv").config();
 const app = express();
-app.use(cors());
 const PORT = process.env.PORT || 3000;
 
-app.get('/news/:symbol', async (req, res) => {
-  const { symbol } = req.params;
-  try {
-    const r = await fetch(`https://newsapi.org/v2/everything?q=${symbol}&language=en&apiKey=${process.env.NEWS_API_KEY}`);
-    const data = await r.json();
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: 'News fetch failed' });
-  }
+app.get("/", (_, res) => res.send("Proxy API is running"));
+
+// Finnhub
+app.get("/proxy/finnhub", async (req, res) => {
+  const { symbol } = req.query;
+  const url = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${process.env.FINNHUB_KEY}`;
+  const response = await fetch(url);
+  const data = await response.json();
+  res.json(data);
 });
 
-app.get('/rsi/:symbol', async (req, res) => {
-  const { symbol } = req.params;
+// News API
+app.get("/proxy/news", async (req, res) => {
+  const { q } = req.query;
+  const url = `https://newsapi.org/v2/everything?q=${q}&language=en&apiKey=${process.env.NEWS_API_KEY}`;
+  const response = await fetch(url);
+  const data = await response.json();
+  res.json(data);
+});
+
+// TAAPI RSI
+app.get("/proxy/rsi", async (req, res) => {
+  const { symbol } = req.query;
   const url = `https://api.taapi.io/rsi?secret=${process.env.TAAPI_KEY}&exchange=binance&symbol=${symbol}/USDT&interval=1h`;
-  try {
-    const r = await fetch(url);
-    const data = await r.json();
-    res.json(data);
-  } catch {
-    res.status(500).json({ error: 'RSI fetch failed' });
-  }
+  const response = await fetch(url);
+  const data = await response.json();
+  res.json(data);
 });
 
-app.get('/macd/:symbol', async (req, res) => {
-  const { symbol } = req.params;
+// TAAPI MACD
+app.get("/proxy/macd", async (req, res) => {
+  const { symbol } = req.query;
   const url = `https://api.taapi.io/macd?secret=${process.env.TAAPI_KEY}&exchange=binance&symbol=${symbol}/USDT&interval=1h`;
-  try {
-    const r = await fetch(url);
-    const data = await r.json();
-    res.json(data);
-  } catch {
-    res.status(500).json({ error: 'MACD fetch failed' });
-  }
+  const response = await fetch(url);
+  const data = await response.json();
+  res.json(data);
 });
 
-app.get('/lunar/:symbol', async (req, res) => {
-  const { symbol } = req.params;
-  try {
-    const r = await fetch(`https://lunarcrush.com/api3/coins?symbol=${symbol}&key=${process.env.LUNAR_API_KEY}`);
-    const data = await r.json();
-    res.json(data);
-  } catch {
-    res.status(500).json({ error: 'LunarCrush fetch failed' });
-  }
+// LunarCrush
+app.get("/proxy/lunar", async (req, res) => {
+  const { symbol } = req.query;
+  const url = `https://lunarcrush.com/api3/coins?symbol=${symbol}&key=${process.env.LUNAR_API_KEY}`;
+  const response = await fetch(url);
+  const data = await response.json();
+  res.json(data);
 });
 
-app.get('/coinmarketcal/:symbol', async (req, res) => {
-  const { symbol } = req.params;
-  try {
-    const r = await fetch(`https://developers.coinmarketcal.com/v1/events?coins=${symbol}&access_token=${process.env.COINMARKETCAL_KEY}`);
-    const data = await r.json();
-    res.json(data);
-  } catch {
-    res.status(500).json({ error: 'CoinMarketCal fetch failed' });
-  }
+// CoinMarketCal
+app.get("/proxy/events", async (req, res) => {
+  const { coins } = req.query;
+  const url = `https://developers.coinmarketcal.com/v1/events?coins=${coins}`;
+  const response = await fetch(url, {
+    headers: { Authorization: process.env.COINMARKETCAL_KEY },
+  });
+  const data = await response.json();
+  res.json(data);
 });
 
-app.get('/token-terminal/:symbol', async (req, res) => {
-  const { symbol } = req.params;
-  try {
-    const r = await fetch(`https://api.tokenterminal.com/v2/projects/${symbol}/metrics/active_addresses_24h`, {
-      headers: { Authorization: `Bearer ${process.env.TOKEN_TERMINAL_KEY}` }
-    });
-    const data = await r.json();
-    res.json(data);
-  } catch {
-    res.status(500).json({ error: 'Token Terminal fetch failed' });
-  }
+// Token Terminal
+app.get("/proxy/onchain", async (req, res) => {
+  const { symbol } = req.query;
+  const url = `https://api.tokenterminal.com/v2/projects/${symbol}/metrics/active_addresses_24h`;
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${process.env.TOKEN_TERMINAL_KEY}` },
+  });
+  const data = await response.json();
+  res.json(data);
 });
 
 app.listen(PORT, () => {
-  console.log(`Proxy API server running on port ${PORT}`);
+  console.log(`Proxy server running on port ${PORT}`);
 });
