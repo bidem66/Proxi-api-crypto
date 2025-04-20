@@ -1,8 +1,16 @@
+// index.js
 const express = require("express");
 const fetch = require("node-fetch");
+const cors = require("cors");
 require("dotenv").config();
+
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Autoriser les requêtes CORS depuis votre frontend GitHub Pages
+app.use(cors({
+  origin: 'https://bidem66.github.io'
+}));
 
 app.get("/", (_, res) => res.send("Proxy API is running"));
 
