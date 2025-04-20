@@ -72,6 +72,20 @@ app.get("/proxy/onchain", async (req, res) => {
   res.json(data);
 });
 
+// CoinGecko via proxy
+app.get("/proxy/coingecko", async (req, res) => {
+  const { endpoint = "", ...params } = req.query;
+  const query = new URLSearchParams(params).toString();
+  const url = `https://api.coingecko.com/api/v3/${endpoint}?${query}`;
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: "Erreur CoinGecko", details: err.message });
+  }
+});
+
 // Catch-all proxy
 app.get("/proxy", async (req, res) => {
   const targetUrl = req.query.url;
