@@ -1,4 +1,3 @@
-// index.js
 const express = require("express");
 const fetch = require("node-fetch");
 require("dotenv").config();
@@ -6,6 +5,15 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.get("/", (_, res) => res.send("Proxy API is running"));
+
+// Finnhub
+app.get("/proxy/finnhub", async (req, res) => {
+  const { symbol } = req.query;
+  const url = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${process.env.FINNHUB_KEY}`;
+  const response = await fetch(url);
+  const data = await response.json();
+  res.json(data);
+});
 
 // News API
 app.get("/proxy/news", async (req, res) => {
@@ -56,10 +64,7 @@ app.get("/proxy/onchain", async (req, res) => {
   res.json(data);
 });
 
-app.listen(PORT, () => {
-  console.log(`Proxy server running on port ${PORT}`);
-});
-// Catch-all Proxy route
+// Catch-all proxy
 app.get("/proxy", async (req, res) => {
   const targetUrl = req.query.url;
   if (!targetUrl) return res.status(400).send("Missing url param");
@@ -70,4 +75,8 @@ app.get("/proxy", async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: "Proxy error", details: err.message });
   }
+});
+
+app.listen(PORT, () => {
+  console.log(`Proxy server running on port ${PORT}`);
 });
