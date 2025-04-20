@@ -43,19 +43,6 @@ app.get("/proxy/macd", async (req, res) => {
   res.json(data);
 });
 
-
-// LunarCrush V4
-app.get("/proxy/lunar", async (req, res) => {
-  const { symbol } = req.query;
-  const url = `https://api.lunarcrush.com/v4?data=assets&symbol=${symbol}`;
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${process.env.LUNAR_API_KEY}`
-    }
-  });
-  const data = await response.json();
-  res.json(data);
-});
 // CoinMarketCal
 app.get("/proxy/events", async (req, res) => {
   const { coins } = req.query;
