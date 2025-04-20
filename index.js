@@ -7,15 +7,6 @@ const PORT = process.env.PORT || 3000;
 
 app.get("/", (_, res) => res.send("Proxy API is running"));
 
-// Finnhub
-app.get("/proxy/finnhub", async (req, res) => {
-  const { symbol } = req.query;
-  const url = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${process.env.FINNHUB_KEY}`;
-  const response = await fetch(url);
-  const data = await response.json();
-  res.json(data);
-});
-
 // News API
 app.get("/proxy/news", async (req, res) => {
   const { q } = req.query;
