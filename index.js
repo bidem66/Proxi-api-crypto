@@ -77,3 +77,15 @@ app.get("/proxy/onchain", async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Proxy server running on port ${PORT}`);
 });
+// Catch-all Proxy route
+app.get("/proxy", async (req, res) => {
+  const targetUrl = req.query.url;
+  if (!targetUrl) return res.status(400).send("Missing url param");
+  try {
+    const response = await fetch(targetUrl);
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: "Proxy error", details: err.message });
+  }
+});
