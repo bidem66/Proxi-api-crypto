@@ -1,4 +1,4 @@
-// index.js (avec cache pour CoinGecko)
+// index.js (complet avec cache CoinGecko + User-Agent)
 const express = require("express");
 const fetch = require("node-fetch");
 const cors = require("cors");
@@ -7,11 +7,14 @@ require("dotenv").config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors({ origin: 'https://bidem66.github.io' }));
+// Autoriser les requêtes CORS depuis votre frontend GitHub Pages
+app.use(cors({
+  origin: 'https://bidem66.github.io'
+}));
 
 app.get("/", (_, res) => res.send("Proxy API is running"));
 
-// In-memory cache for CoinGecko responses
+// ======== CoinGecko Proxy avec cache + User-Agent ========
 const coingeckoCache = new Map();
 const COINGECKO_TTL = 2 * 60 * 1000; // 2 minutes
 
@@ -19,7 +22,6 @@ app.get("/proxy/coingecko", async (req, res) => {
   const { endpoint = "", ...params } = req.query;
   const query = new URLSearchParams(params).toString();
   const url = `https://api.coingecko.com/api/v3/${endpoint}?${query}`;
-
   const cacheKey = `${endpoint}?${query}`;
   const now = Date.now();
 
@@ -27,13 +29,16 @@ app.get("/proxy/coingecko", async (req, res) => {
     const { data, timestamp } = coingeckoCache.get(cacheKey);
     if (now - timestamp < COINGECKO_TTL) {
       return res.json(data);
-    } else {
-      coingeckoCache.delete(cacheKey);
     }
+    coingeckoCache.delete(cacheKey);
   }
 
   try {
-    const response = await fetch(url);
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; DashboardApp/1.0; +https://bidem66.github.io)'
+      }
+    });
     const data = await response.json();
     coingeckoCache.set(cacheKey, { data, timestamp: now });
     res.json(data);
@@ -42,7 +47,8 @@ app.get("/proxy/coingecko", async (req, res) => {
   }
 });
 
-// Reste des routes proxy (inchangées)
+// ======== Autres routes proxy ========
+
 app.get("/proxy/finnhub", async (req, res) => {
   const { symbol } = req.query;
   const url = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${process.env.FINNHUB_KEY}`;
@@ -95,6 +101,7 @@ app.get("/proxy/onchain", async (req, res) => {
   res.json(data);
 });
 
+// Catch-all proxy
 app.get("/proxy", async (req, res) => {
   const targetUrl = req.query.url;
   if (!targetUrl) return res.status(400).send("Missing url param");
