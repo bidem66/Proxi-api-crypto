@@ -7,10 +7,7 @@ require("dotenv").config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Autoriser les requêtes CORS depuis votre frontend GitHub Pages
-app.use(cors({
-  origin: 'https://bidem66.github.io'
-}));
+app.use(cors({ origin: 'https://bidem66.github.io' }));
 
 app.get("/", (_, res) => res.send("Proxy API is running"));
 
@@ -47,8 +44,7 @@ app.get("/proxy/coingecko", async (req, res) => {
   }
 });
 
-// ======== Autres routes proxy ========
-
+// ======== Autres proxies ========
 app.get("/proxy/finnhub", async (req, res) => {
   const { symbol } = req.query;
   const url = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${process.env.FINNHUB_KEY}`;
@@ -101,7 +97,7 @@ app.get("/proxy/onchain", async (req, res) => {
   res.json(data);
 });
 
-// Catch-all proxy
+// Catch-all
 app.get("/proxy", async (req, res) => {
   const targetUrl = req.query.url;
   if (!targetUrl) return res.status(400).send("Missing url param");
