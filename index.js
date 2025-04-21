@@ -1,4 +1,4 @@
-// index.js (complet avec cache CoinGecko + User-Agent)
+// index.js (complet avec cache CoinGecko + User-Agent, compatible avec .env fourni)
 const express = require("express");
 const fetch = require("node-fetch");
 const cors = require("cors");
@@ -11,9 +11,9 @@ app.use(cors({ origin: 'https://bidem66.github.io' }));
 
 app.get("/", (_, res) => res.send("Proxy API is running"));
 
-// === CoinGecko (avec cache + User-Agent) ===
+// ======== CoinGecko Proxy avec cache + User-Agent ========
 const coingeckoCache = new Map();
-const COINGECKO_TTL = 2 * 60 * 1000;
+const COINGECKO_TTL = 2 * 60 * 1000; // 2 minutes
 
 app.get("/proxy/coingecko", async (req, res) => {
   const { endpoint = "", ...params } = req.query;
@@ -24,7 +24,9 @@ app.get("/proxy/coingecko", async (req, res) => {
 
   if (coingeckoCache.has(cacheKey)) {
     const { data, timestamp } = coingeckoCache.get(cacheKey);
-    if (now - timestamp < COINGECKO_TTL) return res.json(data);
+    if (now - timestamp < COINGECKO_TTL) {
+      return res.json(data);
+    }
     coingeckoCache.delete(cacheKey);
   }
 
@@ -42,7 +44,7 @@ app.get("/proxy/coingecko", async (req, res) => {
   }
 });
 
-// === Autres routes ===
+// ======== Autres proxies ========
 
 app.get("/proxy/finnhub", async (req, res) => {
   const { symbol } = req.query;
@@ -80,7 +82,7 @@ app.get("/proxy/events", async (req, res) => {
   const { coins } = req.query;
   const url = `https://developers.coinmarketcal.com/v1/events?coins=${coins}`;
   const response = await fetch(url, {
-    headers: { Authorization: process.env.COINMARKETCAL_KEY }
+    headers: { Authorization: process.env.COINMARKETCAL_KEY },
   });
   const data = await response.json();
   res.json(data);
@@ -90,13 +92,12 @@ app.get("/proxy/onchain", async (req, res) => {
   const { symbol } = req.query;
   const url = `https://api.tokenterminal.com/v2/projects/${symbol}/metrics/active_addresses_24h`;
   const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${process.env.TOKEN_TERMINAL_KEY}` }
+    headers: { Authorization: `Bearer ${process.env.TOKEN_TERMINAL_KEY}` },
   });
   const data = await response.json();
   res.json(data);
 });
 
-// Catch-all
 app.get("/proxy", async (req, res) => {
   const targetUrl = req.query.url;
   if (!targetUrl) return res.status(400).send("Missing url param");
