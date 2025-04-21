@@ -29,7 +29,9 @@ app.get("/proxy/coingecko", async (req, res) => {
 
   try {
     const response = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; DashboardApp/1.0)' }
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:' + (50 + Math.floor(Math.random() * 20)) + '.0)'
+      }
     });
     const data = await response.json();
     coingeckoCache.set(cacheKey, { data, timestamp: now });
