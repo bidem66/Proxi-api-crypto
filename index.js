@@ -1,4 +1,3 @@
-// index.js (complet avec cache CoinGecko + User-Agent, compatible avec .env fourni)
 const express = require("express");
 const fetch = require("node-fetch");
 const cors = require("cors");
@@ -13,7 +12,7 @@ app.get("/", (_, res) => res.send("Proxy API is running"));
 
 // ======== CoinGecko Proxy avec cache + User-Agent ========
 const coingeckoCache = new Map();
-const COINGECKO_TTL = 2 * 60 * 1000; // 2 minutes
+const COINGECKO_TTL = 2 * 60 * 1000;
 
 app.get("/proxy/coingecko", async (req, res) => {
   const { endpoint = "", ...params } = req.query;
@@ -24,17 +23,13 @@ app.get("/proxy/coingecko", async (req, res) => {
 
   if (coingeckoCache.has(cacheKey)) {
     const { data, timestamp } = coingeckoCache.get(cacheKey);
-    if (now - timestamp < COINGECKO_TTL) {
-      return res.json(data);
-    }
+    if (now - timestamp < COINGECKO_TTL) return res.json(data);
     coingeckoCache.delete(cacheKey);
   }
 
   try {
     const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; DashboardApp/1.0; +https://bidem66.github.io)'
-      }
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; DashboardApp/1.0)' }
     });
     const data = await response.json();
     coingeckoCache.set(cacheKey, { data, timestamp: now });
@@ -44,8 +39,18 @@ app.get("/proxy/coingecko", async (req, res) => {
   }
 });
 
-// ======== Autres proxies ========
+// ======== CoinPaprika Proxy ========
+app.get("/proxy/coinpaprika", async (_, res) => {
+  try {
+    const response = await fetch("https://api.coinpaprika.com/v1/tickers");
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: "Erreur CoinPaprika", details: err.message });
+  }
+});
 
+// ======== Autres proxies ========
 app.get("/proxy/finnhub", async (req, res) => {
   const { symbol } = req.query;
   const url = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${process.env.FINNHUB_KEY}`;
