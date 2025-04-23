@@ -1,4 +1,5 @@
 // index.js (backend proxy)
+
 const express = require("express");
 const fetch = require("node-fetch");
 const cors = require("cors");
@@ -8,29 +9,31 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Autoriser GitHub Pages et localhost pour debug
-app.use(cors({ origin: ['https://bidem66.github.io','http://localhost:5500'] }));
+app.use(cors({ origin: ['https://bidem66.github.io', 'http://localhost:5500'] }));
 
 app.get("/", (_, res) => res.send("Proxy API is running"));
 
 // CoinGecko proxy avec cache
 const coingeckoCache = new Map();
-const COINGECKO_TTL = 2 * 60 * 1000;
+const COINGECKO_TTL = 2 * 60 * 1000; // 2 minutes
 app.get("/proxy/coingecko", async (req, res) => {
   const { endpoint = "", ...params } = req.query;
   const query = new URLSearchParams(params).toString();
   const url = `https://api.coingecko.com/api/v3/${endpoint}?${query}`;
   const cacheKey = `${endpoint}?${query}`;
   const now = Date.now();
+
   if (coingeckoCache.has(cacheKey)) {
     const { data, timestamp } = coingeckoCache.get(cacheKey);
-    if (now - timestamp < COINGECKO_TTL) return res.json(data);
+    if (now - timestamp < COINGECKO_TTL) {
+      return res.json(data);
+    }
     coingeckoCache.delete(cacheKey);
   }
+
   try {
     const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
-      }
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; PortfolioDashboard/1.0)' }
     });
     const data = await response.json();
     coingeckoCache.set(cacheKey, { data, timestamp: now });
@@ -40,25 +43,12 @@ app.get("/proxy/coingecko", async (req, res) => {
   }
 });
 
-// Nouvel endpoint dédié : CoinGecko tickers via proxy (évite CORS et simplifie l'appel)
-app.get("/proxy/coingecko-tickers", async (req, res) => {
-  const { symbol } = req.query;
-  try {
-    const response = await fetch(
-      `https://api.coingecko.com/api/v3/coins/${symbol.toLowerCase()}/tickers`,
-      { headers: { 'User-Agent': 'Mozilla/5.0' } }
-    );
-    const json = await response.json();
-    res.json(json);
-  } catch (err) {
-    res.status(500).json({ error: "Erreur CoinGecko tickers", details: err.message });
-  }
-});
-
-// CoinPaprika tickers
+// CoinPaprika tickers (User-Agent to avoid payment_required)
 app.get("/proxy/coinpaprika", async (_, res) => {
   try {
-    const response = await fetch("https://api.coinpaprika.com/v1/tickers");
+    const response = await fetch("https://api.coinpaprika.com/v1/tickers", {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; PortfolioDashboard/1.0)' }
+    });
     const data = await response.json();
     res.json(data);
   } catch (err) {
@@ -66,12 +56,13 @@ app.get("/proxy/coinpaprika", async (_, res) => {
   }
 });
 
-// Nouvel endpoint pour récupérer les marchés CoinPaprika
+// CoinPaprika markets
 app.get("/proxy/coinpaprika-markets", async (req, res) => {
   const { id } = req.query;
   try {
     const response = await fetch(
-      `https://api.coinpaprika.com/v1/coins/${id}/markets`
+      `https://api.coinpaprika.com/v1/coins/${id}/markets`,
+      { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; PortfolioDashboard/1.0)' } }
     );
     const data = await response.json();
     res.json(data);
