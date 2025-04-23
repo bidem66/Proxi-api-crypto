@@ -40,6 +40,21 @@ app.get("/proxy/coingecko", async (req, res) => {
   }
 });
 
+// Nouvel endpoint dédié : CoinGecko tickers via proxy (évite CORS et simplifie l'appel)
+app.get("/proxy/coingecko-tickers", async (req, res) => {
+  const { symbol } = req.query;
+  try {
+    const response = await fetch(
+      `https://api.coingecko.com/api/v3/coins/${symbol.toLowerCase()}/tickers`,
+      { headers: { 'User-Agent': 'Mozilla/5.0' } }
+    );
+    const json = await response.json();
+    res.json(json);
+  } catch (err) {
+    res.status(500).json({ error: "Erreur CoinGecko tickers", details: err.message });
+  }
+});
+
 // CoinPaprika tickers
 app.get("/proxy/coinpaprika", async (_, res) => {
   try {
@@ -95,7 +110,7 @@ app.get("/proxy/binance", async (req, res) => {
 // NewsAPI
 app.get("/proxy/news", async (req, res) => {
   const { q } = req.query;
-  const url = `https://newsapi.org/v2/everything?q=${q}&language=en&apiKey=${process.env.NEWS_API_KEY}`;
+  const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(q)}&language=en&apiKey=${process.env.NEWS_API_KEY}`;
   try {
     const response = await fetch(url);
     const data = await response.json();
@@ -133,7 +148,7 @@ app.get("/proxy/macd", async (req, res) => {
 // CoinMarketCal events
 app.get("/proxy/events", async (req, res) => {
   const { coins } = req.query;
-  const url = `https://developers.coinmarketcal.com/v1/events?coins=${coins}`;
+  const url = `https://developers.coinmarketcal.com/v1/events?coins=${encodeURIComponent(coins)}`;
   try {
     const response = await fetch(url, {
       headers: { Authorization: process.env.COINMARKETCAL_KEY }
