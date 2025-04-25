@@ -1,172 +1,154 @@
-// index.js (backend proxy)
-
-const express = require("express");
-const fetch = require("node-fetch");
-const cors = require("cors");
-require("dotenv").config();
-
+// index.js
+require('dotenv').config();
+const express = require('express');
+const fetch = require('node-fetch');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Autoriser GitHub Pages et localhost pour debug
-app.use(cors({ origin: ['https://bidem66.github.io', 'http://localhost:5500'] }));
+// Chargez votre clé CryptoCompare, quel que soit le nom dans .env
+const CRYPTOCOMPARE_KEY = process.env.CRYPTOCOMPARE_KEY || process.env.CRYPTOCOMPARE_API_KEY;
 
-app.get("/", (_, res) => res.send("Proxy API is running"));
+// CORS & fichiers statiques (si besoin)
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  next();
+});
+app.use(express.static('public'));
 
-// CoinGecko proxy avec cache
-const coingeckoCache = new Map();
-const COINGECKO_TTL = 2 * 60 * 1000; // 2 minutes
-app.get("/proxy/coingecko", async (req, res) => {
-  const { endpoint = "", ...params } = req.query;
-  const query = new URLSearchParams(params).toString();
-  const url = `https://api.coingecko.com/api/v3/${endpoint}?${query}`;
-  const cacheKey = `${endpoint}?${query}`;
-  const now = Date.now();
-
-  if (coingeckoCache.has(cacheKey)) {
-    const { data, timestamp } = coingeckoCache.get(cacheKey);
-    if (now - timestamp < COINGECKO_TTL) {
-      return res.json(data);
-    }
-    coingeckoCache.delete(cacheKey);
-  }
-
+// 1. CoinPaprika (top 1000 tickers)
+app.get('/proxy/coinpaprika', async (req, res) => {
   try {
-    const response = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; PortfolioDashboard/1.0)' }
+    const r = await fetch('https://api.coinpaprika.com/v1/tickers');
+    const data = await r.json();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: 'CoinPaprika fetch error', details: err.message });
+  }
+});
+
+// 2. CoinGecko (générique via paramètre `endpoint`)
+app.get('/proxy/coingecko', async (req, res) => {
+  try {
+    const { endpoint, ...query } = req.query;
+    const qs = new URLSearchParams(query).toString();
+    const r = await fetch(`https://api.coingecko.com/api/v3/${endpoint}?${qs}`);
+    const data = await r.json();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: 'CoinGecko fetch error', details: err.message });
+  }
+});
+
+// 3. Finnhub (actions)
+app.get('/proxy/finnhub', async (req, res) => {
+  try {
+    const { symbol } = req.query;
+    const url = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${process.env.FINNHUB_KEY}`;
+    const r = await fetch(url);
+    res.json(await r.json());
+  } catch (err) {
+    res.status(500).json({ error: 'Finnhub fetch error', details: err.message });
+  }
+});
+
+// 4. Binance (cryptos spot)
+app.get('/proxy/binance', async (req, res) => {
+  try {
+    const { symbol } = req.query;
+    const url = `https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`;
+    const r = await fetch(url);
+    res.json(await r.json());
+  } catch (err) {
+    res.status(500).json({ error: 'Binance fetch error', details: err.message });
+  }
+});
+
+// 5. NewsAPI
+app.get('/proxy/news', async (req, res) => {
+  try {
+    const qs = new URLSearchParams({
+      ...req.query,
+      apiKey: process.env.NEWS_API_KEY
+    }).toString();
+    const r = await fetch(`https://newsapi.org/v2/everything?${qs}`);
+    res.json(await r.json());
+  } catch (err) {
+    res.status(500).json({ error: 'NewsAPI fetch error', details: err.message });
+  }
+});
+
+// 6. CoinMarketCal (événements)
+app.get('/proxy/events', async (req, res) => {
+  try {
+    const { coins } = req.query;
+    const url = `https://api.coinmarketcal.com/v1/events?coins=${coins}`;
+    const r = await fetch(url, {
+      headers: { 'x-api-key': process.env.COINMARKETCAL_KEY }
     });
-    const data = await response.json();
-    coingeckoCache.set(cacheKey, { data, timestamp: now });
-    res.json(data);
+    res.json(await r.json());
   } catch (err) {
-    res.status(500).json({ error: "Erreur CoinGecko", details: err.message });
+    res.status(500).json({ error: 'CoinMarketCal fetch error', details: err.message });
   }
 });
 
-// CoinPaprika tickers
-app.get("/proxy/coinpaprika", async (_, res) => {
+// 7. CryptoCompare – RSI
+app.get('/proxy/cryptocompare/rsi', async (req, res) => {
   try {
-    const response = await fetch("https://api.coinpaprika.com/v1/tickers", {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; PortfolioDashboard/1.0)' }
-    });
-    const data = await response.json();
-    res.json(data);
+    const { fsym, tsym = 'USD', timePeriod = 14 } = req.query;
+    const qs = new URLSearchParams({
+      fsym, tsym,
+      type: 'rsi',
+      timePeriod,
+      limit: 1,
+      api_key: CRYPTOCOMPARE_KEY
+    }).toString();
+    const r = await fetch(`https://min-api.cryptocompare.com/data/v2/technical_indicator?${qs}`);
+    res.json(await r.json());
   } catch (err) {
-    res.status(500).json({ error: "Erreur CoinPaprika", details: err.message });
+    res.status(500).json({ error: 'CryptoCompare RSI fetch error', details: err.message });
   }
 });
 
-// CoinPaprika markets
-app.get("/proxy/coinpaprika-markets", async (req, res) => {
-  const { id } = req.query;
+// 8. CryptoCompare – MACD
+app.get('/proxy/cryptocompare/macd', async (req, res) => {
   try {
-    const response = await fetch(
-      `https://api.coinpaprika.com/v1/coins/${id}/markets`,
-      { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; PortfolioDashboard/1.0)' } }
-    );
-    const data = await response.json();
-    res.json(data);
+    const {
+      fsym,
+      tsym = 'USD',
+      fastPeriod = 12,
+      slowPeriod = 26,
+      signalPeriod = 9
+    } = req.query;
+    const qs = new URLSearchParams({
+      fsym, tsym,
+      type: 'macd',
+      fastPeriod,
+      slowPeriod,
+      signalPeriod,
+      limit: 1,
+      api_key: CRYPTOCOMPARE_KEY
+    }).toString();
+    const r = await fetch(`https://min-api.cryptocompare.com/data/v2/technical_indicator?${qs}`);
+    res.json(await r.json());
   } catch (err) {
-    res.status(500).json([]);
+    res.status(500).json({ error: 'CryptoCompare MACD fetch error', details: err.message });
   }
 });
 
-// Finnhub (actions)
-app.get("/proxy/finnhub", async (req, res) => {
-  const { symbol } = req.query;
-  const url = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${process.env.FINNHUB_KEY}`;
+// 9. Ethplorer – on-chain (clé publique "freekey")
+app.get('/proxy/onchain', async (req, res) => {
   try {
-    const response = await fetch(url);
-    const data = await response.json();
-    res.json(data);
+    const { symbol } = req.query;
+    const url = `https://api.ethplorer.io/getTokenInfo/${symbol}?apiKey=${process.env.ONCHAIN_API_TOKEN}`;
+    const r = await fetch(url);
+    const info = await r.json();
+    // on renvoie dans `.data` pour rester compatible avec votre front
+    res.json({ data: info });
   } catch (err) {
-    res.status(500).json({ error: "Erreur Finnhub", details: err.message });
-  }
-});
-
-// Binance (crypto)
-app.get("/proxy/binance", async (req, res) => {
-  const { symbol } = req.query;
-  try {
-    const response = await fetch(
-      `https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`
-    );
-    const data = await response.json();
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: "Erreur Binance", details: err.message });
-  }
-});
-
-// NewsAPI
-app.get("/proxy/news", async (req, res) => {
-  const { q } = req.query;
-  const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(q)}&language=en&apiKey=${process.env.NEWS_API_KEY}`;
-  try {
-    const response = await fetch(url);
-    const data = await response.json();
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: "Erreur NewsAPI", details: err.message });
-  }
-});
-
-// Taapi RSI
-app.get("/proxy/rsi", async (req, res) => {
-  const { symbol } = req.query;
-  const url = `https://api.taapi.io/rsi?secret=${process.env.TAAPI_KEY}&exchange=binance&symbol=${symbol}/USDT&interval=1h`;
-  try {
-    const response = await fetch(url);
-    const data = await response.json();
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: "Erreur RSI", details: err.message });
-  }
-});
-
-// Taapi MACD
-app.get("/proxy/macd", async (req, res) => {
-  const { symbol } = req.query;
-  const url = `https://api.taapi.io/macd?secret=${process.env.TAAPI_KEY}&exchange=binance&symbol=${symbol}/USDT&interval=1h`;
-  try {
-    const response = await fetch(url);
-    const data = await response.json();
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: "Erreur MACD", details: err.message });
-  }
-});
-
-// CoinMarketCal events
-app.get("/proxy/events", async (req, res) => {
-  const { coins } = req.query;
-  const url = `https://developers.coinmarketcal.com/v1/events?coins=${encodeURIComponent(coins)}`;
-  try {
-    const response = await fetch(url, {
-      headers: { Authorization: process.env.COINMARKETCAL_KEY }
-    });
-    const data = await response.json();
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: "Erreur Events", details: err.message });
-  }
-});
-
-// TokenTerminal on-chain
-app.get("/proxy/onchain", async (req, res) => {
-  const { symbol } = req.query;
-  const url = `https://api.tokenterminal.com/v2/projects/${symbol}/metrics/active_addresses_24h`;
-  try {
-    const response = await fetch(url, {
-      headers: { Authorization: `Bearer ${process.env.TOKEN_TERMINAL_KEY}` }
-    });
-    const data = await response.json();
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: "Erreur On-chain", details: err.message });
+    res.status(500).json({ error: 'Ethplorer fetch error', details: err.message });
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`Proxy server running on port ${PORT}`);
+  console.log(`Proxy server running on http://localhost:${PORT}`);
 });
