@@ -1,2 +1,6 @@
 # ignore environment variables
 .env
+git add .gitignore
+git rm --cached .env    # Désindexe le .env s’il était déjà suivi
+git commit -m "Ignore .env et désindexation"
+git push
