@@ -5,10 +5,10 @@ const fetch = require('node-fetch');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Chargez votre clé CryptoCompare, quel que soit le nom dans .env
+// Chargez votre clé CryptoCompare (pour RSI & MACD)
 const CRYPTOCOMPARE_KEY = process.env.CRYPTOCOMPARE_KEY || process.env.CRYPTOCOMPARE_API_KEY;
 
-// CORS & fichiers statiques (si besoin)
+// CORS & fichiers statiques
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   next();
@@ -83,7 +83,7 @@ app.get('/proxy/events', async (req, res) => {
     const { coins } = req.query;
     const url = `https://api.coinmarketcal.com/v1/events?coins=${coins}`;
     const r = await fetch(url, {
-      headers: { 'x-api-key': process.env.COINMARKETCAL_KEY }
+      headers: { 'x-api-key': process.env.EVENTS_API_TOKEN }
     });
     res.json(await r.json());
   } catch (err) {
@@ -96,7 +96,8 @@ app.get('/proxy/cryptocompare/rsi', async (req, res) => {
   try {
     const { fsym, tsym = 'USD', timePeriod = 14 } = req.query;
     const qs = new URLSearchParams({
-      fsym, tsym,
+      fsym,
+      tsym,
       type: 'rsi',
       timePeriod,
       limit: 1,
@@ -120,7 +121,8 @@ app.get('/proxy/cryptocompare/macd', async (req, res) => {
       signalPeriod = 9
     } = req.query;
     const qs = new URLSearchParams({
-      fsym, tsym,
+      fsym,
+      tsym,
       type: 'macd',
       fastPeriod,
       slowPeriod,
@@ -135,20 +137,21 @@ app.get('/proxy/cryptocompare/macd', async (req, res) => {
   }
 });
 
-// 9. Ethplorer – on-chain (clé publique "freekey")
+// 9. Ethplorer – On-Chain (clé publique ou `freekey`)
 app.get('/proxy/onchain', async (req, res) => {
   try {
     const { symbol } = req.query;
+    // Note : Ethplorer getTokenInfo attend une adresse de contrat ERC-20, pas un symbole.
     const url = `https://api.ethplorer.io/getTokenInfo/${symbol}?apiKey=${process.env.ONCHAIN_API_TOKEN}`;
     const r = await fetch(url);
     const info = await r.json();
-    // on renvoie dans `.data` pour rester compatible avec votre front
     res.json({ data: info });
   } catch (err) {
     res.status(500).json({ error: 'Ethplorer fetch error', details: err.message });
   }
 });
 
+// Démarrage du serveur
 app.listen(PORT, () => {
   console.log(`Proxy server running on http://localhost:${PORT}`);
 });
