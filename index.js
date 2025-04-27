@@ -77,17 +77,20 @@ app.get('/proxy/news', async (req, res) => {
   }
 });
 
-// 6. CoinMarketCal (événements)
+// 6. CoinGecko Events (remplace CoinMarketCal)
 app.get('/proxy/events', async (req, res) => {
   try {
-    const { coins } = req.query;
-    const url = `https://api.coinmarketcal.com/v1/events?coins=${coins}`;
-    const r = await fetch(url, {
-      headers: { 'x-api-key': process.env.EVENTS_API_TOKEN }
-    });
-    res.json(await r.json());
+    const { coins, ...rest } = req.query;
+    const params = new URLSearchParams({
+      ...(coins ? { coins } : {}),
+      ...rest
+    }).toString();
+    const url = `https://api.coingecko.com/api/v3/events?${params}`;
+    const r = await fetch(url);
+    const data = await r.json();
+    res.json(data);
   } catch (err) {
-    res.status(500).json({ error: 'CoinMarketCal fetch error', details: err.message });
+    res.status(500).json({ error: 'CoinGecko Events fetch error', details: err.message });
   }
 });
 
@@ -113,13 +116,7 @@ app.get('/proxy/cryptocompare/rsi', async (req, res) => {
 // 8. CryptoCompare – MACD
 app.get('/proxy/cryptocompare/macd', async (req, res) => {
   try {
-    const {
-      fsym,
-      tsym = 'USD',
-      fastPeriod = 12,
-      slowPeriod = 26,
-      signalPeriod = 9
-    } = req.query;
+    const { fsym, tsym = 'USD', fastPeriod = 12, slowPeriod = 26, signalPeriod = 9 } = req.query;
     const qs = new URLSearchParams({
       fsym,
       tsym,
@@ -141,7 +138,6 @@ app.get('/proxy/cryptocompare/macd', async (req, res) => {
 app.get('/proxy/onchain', async (req, res) => {
   try {
     const { symbol } = req.query;
-    // Note : Ethplorer getTokenInfo attend une adresse de contrat ERC-20, pas un symbole.
     const url = `https://api.ethplorer.io/getTokenInfo/${symbol}?apiKey=${process.env.ONCHAIN_API_TOKEN}`;
     const r = await fetch(url);
     const info = await r.json();
