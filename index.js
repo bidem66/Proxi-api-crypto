@@ -146,11 +146,14 @@ app.get('/proxy/cryptocompare/macd', async (req, res) => {
     res.status(500).json({ error: 'CryptoCompare MACD fetch error', details: err.message });
   }
 });
-
 // 9. Ethplorer – On-Chain (clé publique ou `freekey`)
 app.get('/proxy/onchain', async (req, res) => {
+  const { symbol } = req.query;
+  // Si ce n’est pas une adresse ETH valide, on renvoie un fallback vide
+  if (!/^0x[0-9A-Fa-f]{40}$/.test(symbol)) {
+    return res.json({ data: {} });
+  }
   try {
-    const { symbol } = req.query;
     const url = `https://api.ethplorer.io/getTokenInfo/${symbol}?apiKey=${process.env.ONCHAIN_API_TOKEN}`;
     const r = await fetch(url);
     const info = await r.json();
