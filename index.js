@@ -1,4 +1,3 @@
-// index.js
 require('dotenv').config();
 const express = require('express');
 const fetch = require('node-fetch');
@@ -7,6 +6,8 @@ const PORT = process.env.PORT || 3000;
 
 // Chargez votre clé CryptoCompare (pour RSI & MACD)
 const CRYPTOCOMPARE_KEY = process.env.CRYPTOCOMPARE_KEY || process.env.CRYPTOCOMPARE_API_KEY;
+// Clé CryptoPanic pour les news
+const CRYPTO_PANIC_KEY = process.env.CRYPTO_PANIC_KEY;
 
 // CORS & fichiers statiques
 app.use((req, res, next) => {
@@ -63,17 +64,29 @@ app.get('/proxy/binance', async (req, res) => {
   }
 });
 
-// 5. NewsAPI
+// 5. CryptoPanic (news)
 app.get('/proxy/news', async (req, res) => {
   try {
-    const qs = new URLSearchParams({
-      ...req.query,
-      apiKey: process.env.NEWS_API_KEY
-    }).toString();
-    const r = await fetch(`https://newsapi.org/v2/everything?${qs}`);
-    res.json(await r.json());
+    const { q, limit = 10 } = req.query;
+    const base = 'https://cryptopanic.com/api/v1/posts/';
+    const params = new URLSearchParams({
+      auth_token: CRYPTO_PANIC_KEY,
+      public: 'true',
+      filter: 'hot',
+      limit: limit.toString()
+    });
+    if (q) {
+      params.append('currencies', q.toUpperCase());
+    }
+    const url = `${base}?${params.toString()}`;
+    const apiRes = await fetch(url);
+    const json = await apiRes.json();
+    res.json({
+      status: apiRes.ok ? 'ok' : 'error',
+      articles: Array.isArray(json.results) ? json.results : []
+    });
   } catch (err) {
-    res.status(500).json({ error: 'NewsAPI fetch error', details: err.message });
+    res.status(500).json({ error: 'CryptoPanic fetch error', details: err.message });
   }
 });
 
